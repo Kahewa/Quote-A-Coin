@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Quote A Coin - Firestore collections",
+  "description": "JSON-schema description of the three top-level Firestore collections used by the applet.",
+  "collections": {
+    "users": {
+      "path": "users/{uid}",
+      "description": "One profile per authenticated user. Document ID is the Firebase Auth UID.",
+      "schema": {
+        "type": "object",
+        "required": ["uid", "email", "tier"],
+        "properties": {
+          "uid": { "type": "string", "description": "Matches the document ID / auth UID." },
+          "email": { "type": "string", "description": "From the Google account." },
+          "tier": { "type": "number", "enum": [1, 2], "description": "1 = Basic, 2 = Pro." },
+          "businessName": { "type": "string" },
+          "businessEmail": { "type": "string" },
+          "businessAddress": { "type": "string" },
+          "branding": {
+            "type": "object",
+            "properties": {
+              "primaryColor": { "type": "string", "description": "Hex colour." },
+              "fontFamily": { "type": "string", "description": "One of the four Tailwind font classes." },
+              "logoUrl": { "type": "string", "description": "Logo reference. NOTE: the application reads and writes `logoData` (an inline base64 data URL) instead." }
+            }
+          },
+          "termsAndConditions": { "type": "string" },
+          "role": { "type": "string", "description": "Only meaningful to the rules layer ('admin'). Never written by the app." }
+        }
+      }
+    },
+    "clients": {
+      "path": "clients/{clientId}",
+      "description": "Saved client records. Tier 2 only. Document IDs are Firestore auto-IDs.",
+      "schema": {
+        "type": "object",
+        "required": ["ownerId", "name"],
+        "properties": {
+          "ownerId": { "type": "string", "description": "Auth UID of the owning user." },
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "phone": { "type": "string" },
+          "address": { "type": "string" }
+        }
+      }
+    },
+    "documents": {
+      "path": "documents/{documentId}",
+      "description": "Saved quotations and invoices. Tier 2 only. The client-generated `id` field doubles as the Firestore document ID.",
+      "schema": {
+        "type": "object",
+        "required": ["id", "ownerId", "type", "number", "date", "items", "total", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "ownerId": { "type": "string" },
+          "type": { "type": "string", "enum": ["quotation", "invoice"] },
+          "number": { "type": "string", "description": "QT-/INV- prefix plus a 6-digit timestamp suffix. User-editable, uniqueness not enforced." },
+          "date": { "type": "string", "description": "yyyy-MM-dd" },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "description", "quantity", "unitPrice", "total"],
+              "properties": {
+                "id": { "type": "string" },
+                "description": { "type": "string" },
+                "quantity": { "type": "number" },
+                "unitPrice": { "type": "number" },
+                "total": { "type": "number" }
+              }
+            }
+          },
+          "total": { "type": "number", "description": "Sum of row totals. No tax, discount or shipping." },
+          "status": { "type": "string", "enum": ["pending", "paid", "sent"] },
+          "clientId": { "type": "string" },
+          "clientName": { "type": "string" },
+          "clientEmail": { "type": "string" },
+          "clientAddress": { "type": "string" },
+          "businessName": { "type": "string" },
+          "businessEmail": { "type": "string" },
+          "businessAddress": { "type": "string" },
+          "relatedQuotationId": { "type": "string", "description": "Set on invoices created from a quotation." },
+          "termsAndConditions": { "type": "string" },
+          "branding": {
+            "type": "object",
+            "properties": {
+              "primaryColor": { "type": "string" },
+              "fontFamily": { "type": "string" },
+              "logoUrl": { "type": "string", "description": "Logo reference. NOTE: the application reads and writes `logoData` (an inline base64 data URL) instead." }
+            }
+          }
+        }
+      }
+    }
+  }
+}

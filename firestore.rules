@@ -1,0 +1,89 @@
+rules_version = '2';
+
+// Quote A Coin - Firestore security rules.
+//
+// The browser is the only application runtime, so these rules are the sole
+// server-side enforcement point. Three collections: users, clients, documents.
+//
+// NOTE: adminEmail() below must be set to the operator's own verified Google
+// account before deploying. Anyone signing in with that address gets full read
+// and update access to every user, client and document in the project.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function adminEmail() {
+      return 'admin@example.com'; // <-- set before deploying
+    }
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && resource.data.ownerId == request.auth.uid;
+    }
+
+    function isNewDocOwner() {
+      return isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Performs a get() of the caller's user document. Costs one extra read on
+    // every gated write.
+    function isTier2() {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userDoc().tier == 2;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && userDoc().role == 'admin'
+        )
+        || (request.auth.token.email_verified == true
+            && request.auth.token.email == adminEmail())
+      );
+    }
+
+    function isValidUser() {
+      return request.resource.data.uid is string
+        && request.resource.data.email is string
+        && request.resource.data.tier in [1, 2];
+    }
+
+    // --- users ------------------------------------------------------------
+    // An owner may update their own tier field, so Tier 2 is self-assignable.
+    // This matches the in-app tier selector: there is no billing integration.
+    match /users/{uid} {
+      allow read:   if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid) && isValidUser();
+      allow update: if (isOwner(uid) || isAdmin()) && isValidUser();
+      // No delete rule: profile deletion is denied by default.
+    }
+
+    // --- clients ----------------------------------------------------------
+    match /clients/{clientId} {
+      allow read:   if isDocOwner() || isAdmin();
+      allow create: if isNewDocOwner() && isTier2();
+      allow update: if (isDocOwner() && isTier2()) || isAdmin();
+      allow delete: if (isDocOwner() && isTier2()) || isAdmin();
+    }
+
+    // --- documents --------------------------------------------------------
+    match /documents/{documentId} {
+      allow read:   if isDocOwner() || isAdmin();
+      allow create: if isNewDocOwner() && isTier2();
+      allow update: if (isDocOwner() && isTier2()) || isAdmin();
+      allow delete: if (isDocOwner() && isTier2()) || isAdmin();
+    }
+  }
+}
