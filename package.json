@@ -8,7 +8,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rimraf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "emulators": "node scripts/emulators.mjs",
+    "demo": "concurrently -n emulators,app -c magenta,cyan -k \"npm:emulators\" \"vite --mode demo\"",
+    "seed": "node scripts/seed-demo.mjs",
+    "rules:deploy": "firebase deploy --only firestore:rules",
+    "test:rules": "node scripts/test-rules.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -29,6 +34,8 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.1.0",
+    "firebase-tools": "^15.27.0",
     "rimraf": "^6.0.1",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",

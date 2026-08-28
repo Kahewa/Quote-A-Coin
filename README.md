@@ -33,31 +33,78 @@ Other scripts:
 | `npm run preview` | Serve the production bundle |
 | `npm run lint` | `tsc --noEmit` type check (no ESLint configured) |
 | `npm run clean` | Remove `dist/` |
+| `npm run demo` | Emulators + app together (see Demo mode below) |
+| `npm run emulators` | Firebase Auth + Firestore emulators only |
+| `npm run seed` | Populate the emulators with a Pro demo account |
+| `npm run test:rules` | Check `firestore.rules` against the emulator |
+| `npm run rules:deploy` | Deploy rules to a real Firebase project |
 
 **"Try as Guest" works with no configuration at all** — guest mode is entirely
 client-side, so you can design a document and download the PDF before touching
 Firebase.
 
-## Firebase setup
+## Demo mode (no cloud project, no billing)
 
-Google sign-in and cloud storage need a real Firebase project.
+The fastest way to see the whole app, Pro tier included, is the local Firebase
+Emulator Suite. Nothing touches Google's servers and no payment details are
+needed anywhere.
+
+```bash
+npm run demo     # starts the emulators + the app on http://localhost:3000
+npm run seed     # in a second terminal: creates a Pro account with sample data
+```
+
+Then open http://localhost:3000, click **Continue with Google**, and pick
+`demo@quoteacoin.app` in the emulator's account chooser. You land on a Tier 2
+dashboard with 3 clients, 3 quotations and 2 invoices.
+
+`npm run seed` is idempotent and seeds data for **whichever accounts already
+exist**, so it works whether you run it before or after signing in. Re-run it
+any time to reset the sample data.
+
+Notes:
+
+- The Firestore emulator needs a **JDK (17+)**. `npm run emulators` looks for
+  one in the usual places even if it is not on your PATH, and tells you how to
+  install one if it finds nothing.
+- Emulator state is written to `.emulator-data/` on exit and re-imported on the
+  next start, so your account and documents survive a restart. Delete that
+  folder to start clean.
+- Emulator UI (browse the data directly): http://localhost:4000
+- `npm run test:rules` runs a 12-case check that `firestore.rules` really
+  enforces ownership and the Tier 2 gate.
+
+There is **no payment integration**. Tier 2 is self-assigned from the in-app
+pricing screen and the rules permit a user to change their own `tier` field.
+Wiring up real billing means moving tier changes somewhere the client cannot
+write - a Cloud Function or a custom auth claim.
+
+## Connecting a real Firebase project
+
+When you want it on the internet rather than on localhost:
 
 1. Create a Firebase project and register a **web app**.
 2. Enable **Google** as a sign-in provider under Authentication.
-3. Create a Cloud Firestore database. This app uses a **named** database (not
-   `(default)`); note its database ID.
-4. Fill in `firebase-applet-config.json` with your web app config plus the
-   `databaseId`. Alternatively, copy `.env.example` to `.env` and set the
-   `VITE_FIREBASE_*` variables — those override the JSON file.
-5. Open `firestore.rules`, replace the `adminEmail()` placeholder with your own
-   verified Google address, and deploy the rules:
+3. Create a Cloud Firestore database. This app uses a **named** database (ID
+   `quote-a-coin`, set in `firebase.json` and `firebase-applet-config.json`).
+   Named databases beyond `(default)` require the Blaze plan - if you are on
+   Spark, either upgrade or change `databaseId` to `(default)` in
+   `firebase-applet-config.json` and drop the `database` key from
+   `firebase.json`.
+4. Fill in `firebase-applet-config.json` with your web app config, or copy
+   `.env.example` to `.env` and set the `VITE_FIREBASE_*` variables (those win).
+5. Put your own verified Google address in `adminEmail()` in `firestore.rules` -
+   it ships as `admin@example.com`, so until you change it nobody has admin.
+6. Deploy the rules:
 
    ```bash
-   firebase deploy --only firestore:rules
+   npx firebase login
+   npx firebase use --add          # pick your project
+   npm run rules:deploy
    ```
 
 Rules must be deployed for the access model below to hold. The Firebase web
-config is bundled client-side, which is normal — it identifies the project, it
+config is bundled client-side, which is normal - it identifies the project, it
 does not authorise anything.
 
 ## Tiers
@@ -116,6 +163,11 @@ tier, costing one extra read.
 | `firestore.rules` | Security rules |
 | `firebase-blueprint.json` | Schema description of the three collections |
 | `firebase-applet-config.json` | Firebase web config + named database ID |
+| `firebase.json` / `.firebaserc` | CLI config: rules, indexes, emulator ports, hosting |
+| `.env.demo` | Demo-mode env, committed on purpose - points at the emulators |
+| `scripts/emulators.mjs` | Starts the emulators, locating a JDK if one is not on PATH |
+| `scripts/seed-demo.mjs` | Seeds a Pro account with sample clients and documents |
+| `scripts/test-rules.mjs` | Ownership / Tier 2 checks against `firestore.rules` |
 
 ## Known limitations
 

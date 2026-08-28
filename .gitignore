@@ -5,4 +5,15 @@ dist-ssr
 .env
 .env.*
 !.env.example
+!.env.demo
 .DS_Store
+
+# Firebase emulator artefacts
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*.log
+
+# Firebase emulator state (export-on-exit)
+.emulator-data/
